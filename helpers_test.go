@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fsnotify/fsnotify/internal"
+	"github.com/ketacea/fsnotify/internal"
 )
 
 type testCase struct {
