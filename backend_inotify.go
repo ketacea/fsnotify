@@ -579,3 +579,11 @@ func (w *Watcher) newEvent(name string, mask uint32) Event {
 	}
 	return e
 }
+
+func WithOp(op Op) addOpt {
+	return func(opt *withOpts) {}
+}
+
+func WithMask(mask uint32) addOpt {
+	return func(opt *withOpts) {}
+}

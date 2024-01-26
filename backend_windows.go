@@ -333,6 +333,32 @@ func (w *Watcher) WatchList() []string {
 	return entries
 }
 
+// WithOps sets the flag to monitor. Only valid under Windows.
+func WithOp(op Op) addOpt {
+	return func(opt *withOpts) {
+		var flags uint32
+		if op&Create != 0 {
+			flags |= sysFSCREATE | sysFSMOVEDTO
+		}
+		if op&Write != 0 {
+			flags |= sysFSMODIFY
+		}
+		if op&Remove != 0 {
+			flags |= sysFSDELETE | sysFSDELETESELF
+		}
+		if op&Rename != 0 {
+			flags |= sysFSMOVE | sysFSMOVESELF | sysFSMOVEDFROM
+		}
+
+		opt.flags = flags
+	}
+}
+
+// WithMask sets the mask to monitor. Only valid under Windows.
+func WithMask(mask uint32) addOpt {
+	return func(opt *withOpts) { opt.mask = mask }
+}
+
 // These options are from the old golang.org/x/exp/winfsnotify, where you could
 // add various options to the watch. This has long since been removed.
 //

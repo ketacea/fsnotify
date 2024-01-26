@@ -192,3 +192,11 @@ func (w *Watcher) AddWith(name string, opts ...addOpt) error { return nil }
 //
 // Returns nil if [Watcher.Close] was called.
 func (w *Watcher) Remove(name string) error { return nil }
+
+func WithOp(op Op) addOpt {
+	return func(opt *withOpts) {}
+}
+
+func WithMask(mask uint32) addOpt {
+	return func(opt *withOpts) {}
+}
