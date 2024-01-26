@@ -268,6 +268,7 @@ func (w *Watcher) AddWith(name string, opts ...addOpt) error {
 	in := &input{
 		op:      opAddWatch,
 		path:    filepath.Clean(name),
+		mask:    with.mask,
 		flags:   with.flags,
 		reply:   make(chan error),
 		bufsize: with.bufsize,
@@ -381,6 +382,7 @@ type input struct {
 	op      int
 	path    string
 	flags   uint32
+	mask    uint32
 	bufsize int
 	reply   chan error
 }
@@ -392,14 +394,15 @@ type inode struct {
 }
 
 type watch struct {
-	ov      windows.Overlapped
-	ino     *inode            // i-number
-	recurse bool              // Recursive watch?
-	path    string            // Directory path
-	mask    uint64            // Directory itself is being watched with these notify flags
-	names   map[string]uint64 // Map of names being watched and their notify flags
-	rename  string            // Remembers the old name while renaming a file
-	buf     []byte            // buffer, allocated later
+	ov         windows.Overlapped
+	ino        *inode            // i-number
+	recurse    bool              // Recursive watch?
+	path       string            // Directory path
+	mask       uint64            // Directory itself is being watched with these notify flags
+	customMask uint32            // Directory itself is being watched with these windows notify flags
+	names      map[string]uint64 // Map of names being watched and their notify flags
+	rename     string            // Remembers the old name while renaming a file
+	buf        []byte            // buffer, allocated later
 }
 
 type (
@@ -472,7 +475,7 @@ func (m watchMap) set(ino *inode, watch *watch) {
 }
 
 // Must run within the I/O thread.
-func (w *Watcher) addWatch(pathname string, flags uint64, bufsize int) error {
+func (w *Watcher) addWatch(pathname string, flags uint64, bufsize int, mask uint32) error {
 	pathname, recurse := recursivePath(pathname)
 	dir, err := w.getDir(pathname)
 	if err != nil {
@@ -493,11 +496,12 @@ func (w *Watcher) addWatch(pathname string, flags uint64, bufsize int) error {
 			return os.NewSyscallError("CreateIoCompletionPort", err)
 		}
 		watchEntry = &watch{
-			ino:     ino,
-			path:    dir,
-			names:   make(map[string]uint64),
-			recurse: recurse,
-			buf:     make([]byte, bufsize),
+			ino:        ino,
+			path:       dir,
+			names:      make(map[string]uint64),
+			recurse:    recurse,
+			customMask: mask,
+			buf:        make([]byte, bufsize),
 		}
 		w.mu.Lock()
 		w.watches.set(ino, watchEntry)
@@ -588,9 +592,12 @@ func (w *Watcher) startRead(watch *watch) error {
 		w.sendError(os.NewSyscallError("CancelIo", err))
 		w.deleteWatch(watch)
 	}
-	mask := w.toWindowsFlags(watch.mask)
-	for _, m := range watch.names {
-		mask |= w.toWindowsFlags(m)
+	mask := watch.customMask
+	if mask == 0 {
+		mask = w.toWindowsFlags(watch.mask)
+		for _, m := range watch.names {
+			mask |= w.toWindowsFlags(m)
+		}
 	}
 	if mask == 0 {
 		err := windows.CloseHandle(watch.ino.handle)
@@ -665,7 +672,7 @@ func (w *Watcher) readEvents() {
 			case in := <-w.input:
 				switch in.op {
 				case opAddWatch:
-					in.reply <- w.addWatch(in.path, uint64(in.flags), in.bufsize)
+					in.reply <- w.addWatch(in.path, uint64(in.flags), in.bufsize, in.mask)
 				case opRemoveWatch:
 					in.reply <- w.remWatch(in.path)
 				}
