@@ -625,3 +625,11 @@ func (w *Watcher) WatchList() []string {
 
 	return entries
 }
+
+func WithOp(op Op) addOpt {
+	return func(opt *withOpts) {}
+}
+
+func WithMask(mask uint32) addOpt {
+	return func(opt *withOpts) {}
+}
