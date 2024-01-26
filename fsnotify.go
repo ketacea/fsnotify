@@ -107,6 +107,7 @@ type (
 	addOpt   func(opt *withOpts)
 	withOpts struct {
 		bufsize int
+		flags   uint32
 	}
 )
 
@@ -131,6 +132,28 @@ func getOptions(opts ...addOpt) withOpts {
 // you're hitting "queue or buffer overflow" errors ([ErrEventOverflow]).
 func WithBufferSize(bytes int) addOpt {
 	return func(opt *withOpts) { opt.bufsize = bytes }
+}
+
+// WithOps sets the flag to monitor. Only valid under Windows.
+func WithOps(ops ...Op) addOpt {
+	return func(opt *withOpts) {
+		var flags uint32
+		for _, op := range ops {
+			switch op {
+			case Create:
+				flags |= sysFSCREATE | sysFSMOVEDTO
+			case Write:
+				flags |= sysFSMODIFY
+			case Remove:
+				flags |= sysFSDELETE | sysFSDELETESELF
+			case Rename:
+				flags |= sysFSMOVE | sysFSMOVESELF | sysFSMOVEDFROM
+			default:
+			}
+		}
+
+		opt.flags = flags
+	}
 }
 
 // Check if this path is recursive (ends with "/..." or "\..."), and return the
