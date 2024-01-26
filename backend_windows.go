@@ -261,11 +261,14 @@ func (w *Watcher) AddWith(name string, opts ...addOpt) error {
 	if with.bufsize < 4096 {
 		return fmt.Errorf("fsnotify.WithBufferSize: buffer size cannot be smaller than 4096 bytes")
 	}
+	if with.flags == 0 {
+		with.flags = sysFSALLEVENTS
+	}
 
 	in := &input{
 		op:      opAddWatch,
 		path:    filepath.Clean(name),
-		flags:   sysFSALLEVENTS,
+		flags:   with.flags,
 		reply:   make(chan error),
 		bufsize: with.bufsize,
 	}
